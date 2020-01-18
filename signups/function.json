@@ -5,9 +5,11 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
+      "route": "signups/{signupId:int?}",
       "methods": [
         "get",
-        "post"
+        "post",
+        "put"
       ]
     },
     {
