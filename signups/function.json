@@ -7,9 +7,9 @@
       "name": "req",
       "route": "signups/{signupId:int?}",
       "methods": [
-        "get",
-        "post",
-        "put"
+        "GET",
+        "POST",
+        "PUT"
       ]
     },
     {
