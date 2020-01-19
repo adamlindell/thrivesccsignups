@@ -1,6 +1,6 @@
 module.exports = async (context, req) => {
     context.log(req);
-    switch (req.method){
+/*    switch (req.method){
     case "GET":
         context.res = handleGet();
         break;
@@ -14,7 +14,7 @@ module.exports = async (context, req) => {
         break;
     default:
         context.log("unexpected request: " + req);  //shouldn't happen, Azure is keeping bad verbs out because of function.json
-    }
+    }*/
 };
 
 /**
