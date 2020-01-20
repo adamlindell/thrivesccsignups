@@ -1,6 +1,4 @@
 const { CosmosClient } = require("@azure/cosmos");
-const endpoint = "https://895c16b4-0ee0-4-231-b9ee.documents.azure.com:443/";
-const key = "yZyvLSPuKQ1ofo7OhGncp3SrEdsqhJhXmKizLKl4VNaFR2VVezhu41QZV9kTpnrVOEdmACaAVk9MYbG7fd1Ecw==";
 const databaseName = "thrivesccdb";
 const containerName = "signups";
 let client;
@@ -52,13 +50,20 @@ async function handleGet(req){
  */
 async function handlePost(req){
     if (req.params.signupId){
-        let updatedSignup = updateSignup(req);
-        if (updatedSignup){
-            return { body: updatedSignup };
+        const existingSignup = await getSignup (req.params.signupId);
+        if (existingSignup) {
+            const updatedSignup = await updateSignup(existingSignup.id, req.body);
+            if (updatedSignup){
+                return { body: updatedSignup };
+            } else {
+                return {
+                    status: 500, //Server Error
+                    body: "POST failed. Please try again later."
+                };
+            }
         } else {
             return {
-                status: 500, //Server Error
-                body: "POST failed. Please try again later."
+                status: 404, //Post = update, if there is no existing signup, use PUT
             };
         }
     } else {
@@ -76,6 +81,9 @@ async function handlePost(req){
  */
 async function handlePut(req){
     createSignup(signup);
+    return {
+        status: 200
+    };
 }
 
 async function getAllSignups(){
@@ -94,13 +102,13 @@ async function getSignup(signupId){
         ]
     };
     const {resources} = await client.database(databaseName).container(containerName).items.query(querySpec).fetchAll();
-    return resources;
+    return resources[0];
 }
 
-function createSignup (signup){
+async function createSignup (signup){
 
 }
 
-function updateSignup (signup){
+async function updateSignup (signupId, updatedSignup){
 
 }
