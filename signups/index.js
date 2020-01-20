@@ -4,7 +4,7 @@ const containerName = "signups";
 let client;
 
 module.exports = async (context, req) => {
-    client = new CosmosClient({ endpoint, key });
+    client = new CosmosClient(process.env.CosmoConnection);
     context.log(req);
     switch (req.method){
     case "GET":
