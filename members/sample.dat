@@ -1,3 +1,32 @@
 {
-    "name": "Azure"
+    "id": 1,
+    "name": "Sample Event",
+    "location": "14110 W Lisbon Rd, Brookfield, WI 53005",
+    "description": "Come to Adam's house and sample all of the great stuff he has",
+    "startTime": "2020-03-01T12:10:38.394Z",
+    "calendarId": "",
+    "roles": [{
+        "name": "default",
+        "maxMembers": "",
+        "members": [{
+            "id": 1,
+            "name": "First guy",
+            "qty": "",
+            "comment": "first!"
+        },
+        {
+            "id": 2,
+            "name": "Mike Carlo",
+            "qty": "",
+            "comment": "I'll try anything once"
+        },
+        {
+            "id": 3,
+            "name": "Carlo Obama",
+            "qty": "",
+            "comment": "I'll try anything Mike tries"
+        },
+        ],
+    },
+    ],
 }

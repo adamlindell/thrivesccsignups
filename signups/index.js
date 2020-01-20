@@ -1,8 +1,15 @@
+const { CosmosClient } = require("@azure/cosmos");
+const endpoint = "https://895c16b4-0ee0-4-231-b9ee.documents.azure.com:443/";
+const key = "yZyvLSPuKQ1ofo7OhGncp3SrEdsqhJhXmKizLKl4VNaFR2VVezhu41QZV9kTpnrVOEdmACaAVk9MYbG7fd1Ecw==";
+const databaseName = "thrivesccdb";
+const containerName = "signups"
+const client = new CosmosClient({ endpoint, key });
+
 module.exports = async (context, req) => {
     context.log(req);
     switch (req.method){
     case "GET":
-        context.res = handleGet();
+        context.res = await handleGet(req);
         break;
     case "PUT":
         context.res = {
@@ -22,7 +29,7 @@ module.exports = async (context, req) => {
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-function handleGet(req){
+async function handleGet(req){
     let result;
     if ( req.params.signupId ){
         result = getSignup(req.params.signupId);
@@ -35,7 +42,7 @@ function handleGet(req){
 
     //if no id, list the signups
     return {
-        body: getAllSignups()
+        body: await getAllSignups()
     };
 }
 
@@ -72,8 +79,9 @@ function handlePut(req){
     createSignup(signup);
 }
 
-function getAllSignups(){
-    return getSignup(1).concat(getSignup(2));
+async function getAllSignups(){
+    const {resources} = await client.database(databaseName).container(containerName).items.readAll().fetchAll();
+    return resources;
 }
 
 function getSignup(signupId){
