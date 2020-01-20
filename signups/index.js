@@ -2,22 +2,21 @@ const { CosmosClient } = require("@azure/cosmos");
 const endpoint = "https://895c16b4-0ee0-4-231-b9ee.documents.azure.com:443/";
 const key = "yZyvLSPuKQ1ofo7OhGncp3SrEdsqhJhXmKizLKl4VNaFR2VVezhu41QZV9kTpnrVOEdmACaAVk9MYbG7fd1Ecw==";
 const databaseName = "thrivesccdb";
-const containerName = "signups"
-const client = new CosmosClient({ endpoint, key });
+const containerName = "signups";
+let client;
 
 module.exports = async (context, req) => {
+    client = new CosmosClient({ endpoint, key });
     context.log(req);
     switch (req.method){
     case "GET":
         context.res = await handleGet(req);
         break;
     case "PUT":
-        context.res = {
-            body: "put some"
-        };
+        context.res = await handlePut(req);
         break;
     case "POST":
-        context.res = handlePost(req);
+        context.res = await handlePost(req);
         break;
     default:
         context.log("unexpected request: " + req);  //shouldn't happen, Azure is keeping bad verbs out because of function.json
@@ -32,7 +31,7 @@ module.exports = async (context, req) => {
 async function handleGet(req){
     let result;
     if ( req.params.signupId ){
-        result = getSignup(req.params.signupId);
+        result = await getSignup(req.params.signupId);
         if (result){
             return { body: result };
         } else {
@@ -51,9 +50,9 @@ async function handleGet(req){
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-function handlePost(req){
-    if ( req.params.signupId ){
-        let updatedSignup = updateSignup( req );
+async function handlePost(req){
+    if (req.params.signupId){
+        let updatedSignup = updateSignup(req);
         if (updatedSignup){
             return { body: updatedSignup };
         } else {
@@ -75,7 +74,7 @@ function handlePost(req){
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-function handlePut(req){
+async function handlePut(req){
     createSignup(signup);
 }
 
@@ -84,11 +83,18 @@ async function getAllSignups(){
     return resources;
 }
 
-function getSignup(signupId){
-    return [{
-        name: "test signup",
-        startTime: new Date (2010, 02, 01, 12, 10, 29, 9394),
-    }];
+async function getSignup(signupId){
+    const querySpec = {
+        query: "SELECT * FROM c WHERE c.id = @signupId ORDER BY c._ts DESC",
+        parameters:[
+            {
+                name: "@signupId",
+                value: signupId
+            }
+        ]
+    };
+    const {resources} = await client.database(databaseName).container(containerName).items.query(querySpec).fetchAll();
+    return resources;
 }
 
 function createSignup (signup){
