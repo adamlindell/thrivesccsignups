@@ -5,7 +5,7 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "route": "signups/{signupId:int}/members/{memberId:int?}",
+      "route": "signups/{signupId}/members/{memberId?}",
       "methods": [
         "GET",
         "POST",
