@@ -1,6 +1,7 @@
 const { CosmosClient } = require("@azure/cosmos");
 const databaseName = "thrivesccdb";
 const containerName = "signups";
+const partitionKeyName = "DayOfMonthPartitionKey";
 let client;
 
 module.exports = async (context, req) => {
@@ -52,15 +53,8 @@ async function handlePost(req){
     if (req.params.signupId){
         const existingSignup = await getSignup (req.params.signupId);
         if (existingSignup) {
-            const updatedSignup = await updateSignup(existingSignup.id, req.body);
-            if (updatedSignup){
-                return { body: updatedSignup };
-            } else {
-                return {
-                    status: 500, //Server Error
-                    body: "POST failed. Please try again later."
-                };
-            }
+            const updatedSignup = await updateSignup(existingSignup.id, existingSignup[partitionKeyName], req.body);
+            return { status: 200 };
         } else {
             return {
                 status: 404, //Post = update, if there is no existing signup, use PUT
@@ -80,7 +74,7 @@ async function handlePost(req){
  * @param {*} req - the request object.
  */
 async function handlePut(req){
-    createSignup(signup);
+    createSignup(req.body);
     return {
         status: 200
     };
@@ -101,14 +95,21 @@ async function getSignup(signupId){
             }
         ]
     };
+
     const {resources} = await client.database(databaseName).container(containerName).items.query(querySpec).fetchAll();
     return resources[0];
 }
 
 async function createSignup (signup){
-
+    const response = await client.database(databaseName).container(containerName).items.create(signup);
+    return response;
 }
 
-async function updateSignup (signupId, updatedSignup){
-
+async function updateSignup (signupId, clientPartitionKey, updatedSignup){
+    let startDate = new Date(Date.parse (updatedSignup.startTime));
+    updatedSignup.id = signupId;
+    updatedSignup[partitionKeyName] = startDate.getDate();
+    const response = await client.database(databaseName).container(containerName).item(signupId, clientPartitionKey).delete();
+    createSignup (updatedSignup);
+    return response;
 }
