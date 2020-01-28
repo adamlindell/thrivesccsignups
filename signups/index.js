@@ -1,11 +1,11 @@
-const { CosmosClient } = require("@azure/cosmos");
-const databaseName = "thrivesccdb";
-const containerName = "signups";
-const partitionKeyName = "DayOfMonthPartitionKey";
-let client;
+const AZURE = require('azure-storage');
+const AZURE_TABLE_SERVICE = AZURE.createTableService();
+const TABLE_SIGNUP = "signup";
+const TABLE_MEMBER = "member";
+const DEFAULT_PARTITION = "default";
 
 module.exports = async (context, req) => {
-    client = new CosmosClient(process.env.CosmoConnection);
+    initDB();
     context.log(req);
     switch (req.method){
     case "GET":
@@ -18,9 +18,25 @@ module.exports = async (context, req) => {
         context.res = await handlePost(req);
         break;
     default:
-        context.log("unexpected request: " + req);  //shouldn't happen, Azure is keeping bad verbs out because of function.json
+        context.error("unexpected request:");
+        context.error(req);  //shouldn't happen, Azure is keeping bad verbs out because of function.json
+        context.res = { status: 500 };
     }
 };
+
+function initDB (){
+    initTable(TABLE_SIGNUP);
+    initTable(TABLE_MEMBER);
+}
+
+function initTable (tableName){
+    AZURE_TABLE_SERVICE.createTableIfNotExists(tableName, function(error, result, response){
+        if(error){
+            context.error("create " + tableName + "table:");
+            context.error(error);
+        }
+    });
+}
 
 /**
  * handleGet processes all get requests.
@@ -86,18 +102,30 @@ async function getAllSignups(){
 }
 
 async function getSignup(signupId){
-    const querySpec = {
-        query: "SELECT * FROM c WHERE c.id = @signupId ORDER BY c._ts DESC",
-        parameters:[
-            {
-                name: "@signupId",
-                value: signupId
-            }
-        ]
-    };
+    try{
+        return asyncRetrieveEntity(TABLE_SIGNUP, DEFAULT_PARTITION, signupId);
+/*      const memberQuery = new AZURE.TableQuery()
+      .where('memberId eq ?', );
+    AZURE_TABLE_SERVICE.queryEntities('mytable',query, null, function(error, result, response) {
+    if(!error) {
+        // query was successful
+    }
+    });
+*/
+    } catch (errorAndResponse) {
+        console.error("getSignup error:");
+        console.error(errorAndResponse);
+    }
+}
 
-    const {resources} = await client.database(databaseName).container(containerName).items.query(querySpec).fetchAll();
-    return resources[0];
+async function asyncRetrieveEntity ( tableName, partitionKeyName, rowId){
+    return AZURE_TABLE_SERVICE.retrieveEntity(tableName, partitionKeyName, rowId, (error, result, response) => {
+        if(error){
+            Promise.reject({error, response});
+        } else {
+            Promise.resolve(result);
+        }
+    });
 }
 
 async function createSignup (signup){
