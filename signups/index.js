@@ -103,7 +103,8 @@ async function getAllSignups(){
 
 async function getSignup(signupId){
     try{
-        return asyncRetrieveEntity(TABLE_SIGNUP, DEFAULT_PARTITION, signupId);
+        const result = await asyncRetrieveEntity(TABLE_SIGNUP, DEFAULT_PARTITION, signupId);
+        return result;
 /*      const memberQuery = new AZURE.TableQuery()
       .where('memberId eq ?', );
     AZURE_TABLE_SERVICE.queryEntities('mytable',query, null, function(error, result, response) {
@@ -118,14 +119,14 @@ async function getSignup(signupId){
     }
 }
 
-async function asyncRetrieveEntity ( tableName, partitionKeyName, rowId){
-    return AZURE_TABLE_SERVICE.retrieveEntity(tableName, partitionKeyName, rowId, (error, result, response) => {
+function asyncRetrieveEntity ( tableName, partitionKeyName, rowId){
+    return new Promise((resolve, reject) => AZURE_TABLE_SERVICE.retrieveEntity(tableName, partitionKeyName, rowId, (error, result, response) => {
         if(error){
-            Promise.reject({error, response});
+            reject({error, response});
         } else {
-            Promise.resolve(result);
+            resolve(result);
         }
-    });
+    }));
 }
 
 async function createSignup (signup){
