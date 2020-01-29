@@ -1,7 +1,7 @@
 const AZURE = require('azure-storage');
-const AZURE_TABLE_SERVICE = AZURE.createTableService();
 const TABLE_SIGNUP = "signup";
 const TABLE_MEMBER = "member";
+const TABLE_SIGNUP_MEMBER = "signupMember";
 const DEFAULT_PARTITION = "default";
 
 module.exports = async (context, req) => {
@@ -26,11 +26,12 @@ module.exports = async (context, req) => {
 
 function initDB (){
     initTable(TABLE_SIGNUP);
+    initTable(TABLE_SIGNUP_MEMBER);
     initTable(TABLE_MEMBER);
 }
 
 function initTable (tableName){
-    AZURE_TABLE_SERVICE.createTableIfNotExists(tableName, function(error, result, response){
+    AZURE.createTableService().createTableIfNotExists(tableName, function(error, result, response){
         if(error){
             context.error("create " + tableName + "table:");
             context.error(error);
@@ -103,24 +104,40 @@ async function getAllSignups(){
 
 async function getSignup(signupId){
     try{
-        const result = await asyncRetrieveEntity(TABLE_SIGNUP, DEFAULT_PARTITION, signupId);
-        return result;
-/*      const memberQuery = new AZURE.TableQuery()
-      .where('memberId eq ?', );
-    AZURE_TABLE_SERVICE.queryEntities('mytable',query, null, function(error, result, response) {
-    if(!error) {
-        // query was successful
-    }
-    });
-*/
-    } catch (errorAndResponse) {
+        const signup = await asyncRetrieveEntity(TABLE_SIGNUP, DEFAULT_PARTITION, signupId);
+        const signupMembersQuery = new AZURE.TableQuery().where ("signupId eq ?", signupId);
+        const signupMembers = await asyncQueryEntities(TABLE_SIGNUP_MEMBER, signupMembersQuery);
+        const members = await Promise.all( signupMembers.entries.map( (signupMember) => {
+            return getMember(signupMember.memberId._);
+        })) ;
+        return {signup, signupMembers, members};
+    } catch (error) {
         console.error("getSignup error:");
-        console.error(errorAndResponse);
+        console.error(error);
+    }
+}
+
+async function getMember(memberId){
+    try{
+        return await asyncRetrieveEntity(TABLE_MEMBER, DEFAULT_PARTITION, memberId);
+    } catch (error) {
+        console.error("getMember error:");
+        console.error(error);
     }
 }
 
 function asyncRetrieveEntity ( tableName, partitionKeyName, rowId){
-    return new Promise((resolve, reject) => AZURE_TABLE_SERVICE.retrieveEntity(tableName, partitionKeyName, rowId, (error, result, response) => {
+    return new Promise((resolve, reject) => AZURE.createTableService().retrieveEntity(tableName, partitionKeyName, rowId, (error, result, response) => {
+        if(error){
+            reject({error, response});
+        } else {
+            resolve(result);
+        }
+    }));
+}
+
+function asyncQueryEntities ( tableName, query, continuationToken){
+    return new Promise ((resolve, reject) => AZURE.createTableService().queryEntities(tableName, query, continuationToken, function(error, result, response) {
         if(error){
             reject({error, response});
         } else {
@@ -134,11 +151,3 @@ async function createSignup (signup){
     return response;
 }
 
-async function updateSignup (signupId, clientPartitionKey, updatedSignup){
-    let startDate = new Date(Date.parse (updatedSignup.startTime));
-    updatedSignup.id = signupId;
-    updatedSignup[partitionKeyName] = startDate.getDate();
-    const response = await client.database(databaseName).container(containerName).item(signupId, clientPartitionKey).delete();
-    createSignup (updatedSignup);
-    return response;
-}
