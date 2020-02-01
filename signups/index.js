@@ -98,23 +98,36 @@ async function handlePut(req){
 }
 
 async function getAllSignups(){
-    const {resources} = await client.database(databaseName).container(containerName).items.readAll().fetchAll();
-    return resources;
+    try{
+        const signupsData = await asyncQueryEntities(TABLE_SIGNUP, new AZURE.TableQuery());
+        const signups = await Promise.all (signupsData.map( async (signup) => {
+            return { ...signup, members: await getMembersForSignup(signup.RowKey._)};
+        } ));
+        return signups;
+    } catch (error) {
+        console.error("getAllSignups error:");
+        console.error(error);
+    }
 }
 
 async function getSignup(signupId){
     try{
         const signup = await asyncRetrieveEntity(TABLE_SIGNUP, DEFAULT_PARTITION, signupId);
-        const signupMembersQuery = new AZURE.TableQuery().where ("signupId eq ?", signupId);
-        const signupMembers = await asyncQueryEntities(TABLE_SIGNUP_MEMBER, signupMembersQuery);
-        const members = await Promise.all( signupMembers.entries.map( (signupMember) => {
-            return getMember(signupMember.memberId._);
-        })) ;
-        return {signup, signupMembers, members};
+        const members = await getMembersForSignup(signupId);
+        return {signup, members};
     } catch (error) {
         console.error("getSignup error:");
         console.error(error);
     }
+}
+
+async function getMembersForSignup (signupId) {
+    const signupMembersQuery = new AZURE.TableQuery().where ("signupId eq ?", signupId);
+    const signupMembers = await asyncQueryEntities(TABLE_SIGNUP_MEMBER, signupMembersQuery);
+    const members = await Promise.all(
+        signupMembers.map( 
+            (signupMember) => getMember(signupMember.memberId._))) ;
+    return members;
 }
 
 async function getMember(memberId){
@@ -141,7 +154,7 @@ function asyncQueryEntities ( tableName, query, continuationToken){
         if(error){
             reject({error, response});
         } else {
-            resolve(result);
+            resolve(result.entries);
         }
     }));
 }
