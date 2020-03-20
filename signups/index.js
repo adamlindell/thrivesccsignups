@@ -1,8 +1,9 @@
-const AZURE = require('azure-storage');
+'use strict';
+const DB_UTILS = require ('./dbUtils.js');
+
 const TABLE_SIGNUP = "signup";
 const TABLE_MEMBER = "member";
 const TABLE_SIGNUP_MEMBER = "signupMember";
-const DEFAULT_PARTITION = "default";
 
 module.exports = async (context, req) => {
     initDB();
@@ -30,34 +31,9 @@ module.exports = async (context, req) => {
 };
 
 function initDB (){
-    initTable(TABLE_SIGNUP);
-    initTable(TABLE_SIGNUP_MEMBER);
-    initTable(TABLE_MEMBER);
-}
-
-function initTable (tableName){
-    AZURE.createTableService().createTableIfNotExists(tableName, function(error, result, response){
-        if(error){
-            context.error("create " + tableName + "table:");
-            context.error(error);
-        }
-    });
-}
-
-function cleanUpAzureDBResponse (azureResponse){
-    const result = {};
-    Object.keys(azureResponse).map( key => {
-        if (key === ".metadata"){ //metadata is only useful within a db transaction, so skip it
-            return;
-        }
-
-        if (Array.isArray (azureResponse[key])){
-            result[key] = azureResponse[key].map (cleanUpAzureDBResponse);
-        } else {
-        result[key] = azureResponse[key]._;
-        }               
-    });
-    return result;
+    DB_UTILS.initTable(TABLE_SIGNUP);
+    DB_UTILS.initTable(TABLE_SIGNUP_MEMBER);
+    DB_UTILS.initTable(TABLE_MEMBER);
 }
 
 
@@ -126,7 +102,7 @@ async function createSignup (signup){
 
 async function getAllSignups(){
     try{
-        const signupsData = await asyncQueryEntities(TABLE_SIGNUP, new AZURE.TableQuery());
+        const signupsData = await DB_UTILS.asyncQueryEntities(TABLE_SIGNUP, new DB_UTILS.AZURE.TableQuery());
         const signups = await Promise.all (signupsData.map( async (signup) => {
             const members = await getMembersForSignup (signup.RowKey);
             return { ...signup, members};
@@ -141,7 +117,7 @@ async function getAllSignups(){
 
 async function getSignup(signupId){
     try{
-        const signup = await asyncRetrieveEntity(TABLE_SIGNUP, DEFAULT_PARTITION, signupId);
+        const signup = await DB_UTILS.asyncRetrieveEntity(TABLE_SIGNUP, signupId);
         const members = await getMembersForSignup(signupId);
 
         return { ...signup, members};
@@ -153,8 +129,8 @@ async function getSignup(signupId){
 }
 
 async function getMembersForSignup (signupId) {
-    const signupMembersQuery = new AZURE.TableQuery().where ("signupId eq ?", signupId);
-    const signupMembers = await asyncQueryEntities(TABLE_SIGNUP_MEMBER, signupMembersQuery);
+    const signupMembersQuery = new DB_UTILS.AZURE.TableQuery().where ("signupId eq ?", signupId);
+    const signupMembers = await DB_UTILS.asyncQueryEntities(TABLE_SIGNUP_MEMBER, signupMembersQuery);
     const members = await Promise.all(
         signupMembers.map( 
             (signupMember) => getMember(signupMember.memberId)));
@@ -163,7 +139,7 @@ async function getMembersForSignup (signupId) {
 
 async function getMember(memberId){
     try{
-        return await asyncRetrieveEntity(TABLE_MEMBER, DEFAULT_PARTITION, ""+memberId);
+        return await DB_UTILS.asyncRetrieveEntity(TABLE_MEMBER, memberId);
     } catch (error) {
         console.error("getMember error:");
         console.error(error);
@@ -177,8 +153,8 @@ async function updateSignup(signupid, signup){
         delete signup.members;
         delete signup.createTimestamp; //createTimestamp is not updateable.
         
-        updateSignupMembership (signupId, members);
-        return await asyncMergeEntity (TABLE_SIGNUP, signup);
+        //updateSignupMembership (signupId, members);
+        return await DB_UTILS.asyncMergeEntity (TABLE_SIGNUP, signup);
     } catch (error) {
         console.error("updateSignup error:");
         console.error(error);
@@ -186,16 +162,16 @@ async function updateSignup(signupid, signup){
     }
 }
 
-async function updateSignupMembership (signupId, members){
+/*async function updateSignupMembership (signupId, members){
 //TODO: break down members into signupmemebers in comment and regular members 
     const dbMembers = await getMembersForSignup (signupId);
     if ( members ){
         members.map (
             member => {
                 try {
-                    const signupMemberRecord = {signupId, "ROWKEY": member.memberId, "PARTITIONKEY": DEFAULT_PARTITION};
-                    asyncInsertOrMergeEntity (TABLE_MEMBER, member);
-                    //asyncInsertOrMergeEntity (TABLE_SIGNUP_MEMBER, signupMemberRecord);
+                    const signupMemberRecord = {signupId, "memberId": member.memberId, "PARTITIONKEY": DEFAULT_PARTITION};
+                    DB_UTILS.asyncInsertOrMergeEntity (TABLE_MEMBER, member);
+                    //DB_UTILS.asyncInsertOrMergeEntity (TABLE_SIGNUP_MEMBER, signupMemberRecord);
                 } catch (error) {
                     console.error("updateSignupMembership error:");
                     console.error(error); 
@@ -204,59 +180,4 @@ async function updateSignupMembership (signupId, members){
             }
         );
     }
-}
-
-function asyncRetrieveEntity (tableName, partitionKeyName, rowId){
-    return new Promise((resolve, reject) => AZURE.createTableService().retrieveEntity(tableName, partitionKeyName, rowId, (error, result, response) => {
-        if(error){
-            reject({error, response});
-        } else {
-            resolve (cleanUpAzureDBResponse (result));
-        }
-    }));
-}
-
-function asyncQueryEntities (tableName, query, continuationToken){
-    return new Promise ((resolve, reject) => AZURE.createTableService().queryEntities(tableName, query, continuationToken, function(error, result, response) {
-        if(error){
-            reject({error, response});
-        } else {
-            if (result.entries){
-                resolve(result.entries.map(cleanUpAzureDBResponse));
-            } else {
-                resolve(result.entries);
-            }
-           
-        }
-    }));
-}
-
-function asyncMergeEntity (tableName, entity, options = undefined){
-    return new Promise ((resolve, reject) => AZURE.createTableService().mergeEntity(tableName, entity, options, function(error, result, response) {
-        if(error){
-            reject({error, response});
-        } else {
-            resolve(result); //successfully merged element
-        }
-    }));
-}
-
-function asyncInsertOrMergeEntity (tableName, entity, options = undefined){
-    return new Promise ((resolve, reject) => AZURE.createTableService().insertOrMergeEntity(tableName, entity, options, function(error, result, response) {
-        if(error){
-            reject({error, response});
-        } else {
-            resolve(result); //successfully persisted element
-        }
-    }));
-}
-
-function asyncDeleteEntity (tableName, entity, options = undefined){
-    return new Promise ((resolve, reject) => AZURE.createTableService().delete(tableName, entity, options, function(error, result, response) {
-        if(error){
-            reject({error, response});
-        } else {
-            resolve(result); //successfully deleted element
-        }
-    }));
-}
+}*/
