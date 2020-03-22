@@ -21,6 +21,7 @@ function cleanUpAzureDBResponse (azureResponse){
 
 module.exports = {
     AZURE,
+    DEFAULT_PARTITION,
     asyncRetrieveEntity: function (tableName, rowId, partitionKeyName = DEFAULT_PARTITION){
         return new Promise((resolve, reject) => AZURE.createTableService().retrieveEntity(tableName, partitionKeyName, rowId, (error, result, response) => {
             if(error){
