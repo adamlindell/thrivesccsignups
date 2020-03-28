@@ -1,14 +1,22 @@
 const DB_UTILS = require ('./dbUtils.js');
 const SIGNUP_MEMBER = require ('./signupMember.js');
 
+
 const createSignup = async (signup) => {
-    //const response = await client.database(databaseName).container(containerName).items.create(signup);
-    //return response;
+    try{
+        const {dbSignup, members} = undecorateSignup (signup);
+        DB_UTILS.asyncInsertEntity ( DB_UTILS.TABLE_SIGNUP, dbSignup);
+        SIGNUP_MEMBER.upsertSignupMembership (signup.signupId, members);
+    } catch (error) {
+        console.error("createSignup error:");
+        console.error(error);
+        throw error;
+    }
 };
 
-const getAllSignups = async () =>{
+const getAllSignups = async () => {
     try{
-        const signupsData = await DB_UTILS.asyncQueryEntities (TABLE_SIGNUP, new DB_UTILS.AZURE.TableQuery());
+        const signupsData = await DB_UTILS.asyncQueryEntities (DB_UTILS.TABLE_SIGNUP, new DB_UTILS.AZURE.TableQuery());
         const signups = await Promise.all (signupsData.map (decorateSignup));
         return signups;
     } catch (error) {
@@ -20,8 +28,8 @@ const getAllSignups = async () =>{
 
 const getSignup = async (signupId) => {
     try{
-        const signup = await DB_UTILS.asyncRetrieveEntity(TABLE_SIGNUP, signupId);
-        return decorateSignup (signup);
+        const signup = await DB_UTILS.asyncRetrieveEntity(DB_UTILS.TABLE_SIGNUP, signupId);
+        return await decorateSignup (signup);
     } catch (error) {
         console.error("getSignup error:");
         console.error(error);
@@ -33,14 +41,16 @@ const decorateSignup = async (rawSignup) => {
     const signup = {...rawSignup};
     const signupId = rawSignup.RowKey;
     const members = await SIGNUP_MEMBER.getMembersForSignup(signupId);
-    
+    signup.updateTimestamp = signup.Timestamp;
+
     delete signup.RowKey;
     delete signup.PartitionKey;
+    delete signup.Timestamp;
     
     return { signupId, ...signup, members};
 }; 
 
-const undecorateSignup = async (signup) => {
+const undecorateSignup = (signup) => {
     const dbSignup = {...signup};
     const members = dbSignup.members;
     
@@ -56,10 +66,9 @@ const undecorateSignup = async (signup) => {
 const updateSignup = async (signup) => {
     try{
         const {dbSignup, members}  = await undecorateSignup(signup);
-        delete dbSignup.createTimestamp; //createTimestamp is not updateable.
         
-        await SIGNUP_MEMBER.upsertSignupMembership (members);
-        return await DB_UTILS.asyncMergeEntity (TABLE_SIGNUP, dbSignup);
+        await SIGNUP_MEMBER.upsertSignupMembership (signup.signupId, members);
+        return await DB_UTILS.asyncMergeEntity (DB_UTILS.TABLE_SIGNUP, dbSignup);
     } catch (error) {
         console.error ("updateSignup error:");
         console.error (error);
@@ -67,4 +76,4 @@ const updateSignup = async (signup) => {
     }
 };
 
-module.exports = {createSignup, getAllSignups, getSignup, decorateSignup, undecorateSignup, updateSignup};
+module.exports = {createSignup, getAllSignups, getSignup, updateSignup};

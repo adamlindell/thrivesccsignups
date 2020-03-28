@@ -6,7 +6,8 @@
     "test": "echo \"No tests yet...\""
   },
   "dependencies": {
-    "azure-storage": "^2.10.3"
+    "azure-storage": "^2.10.3",
+    "uuid": "^7.0.0"
   },
   "devDependencies": {}
 }

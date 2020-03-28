@@ -1,11 +1,6 @@
-'use strict';
 const SIGNUP = require ('./signup.js');
-const TABLE_SIGNUP = "signup";
-const TABLE_MEMBER = "member";
-const TABLE_SIGNUP_MEMBER = "signupMember";
 
-module.exports = async (context, req) => {
-    initDB();
+module.exports = async (context, req) => {    
     context.log(req);
     try{
         switch (req.method){
@@ -29,19 +24,12 @@ module.exports = async (context, req) => {
     }
 };
 
-function initDB (){
-    DB_UTILS.initTable(TABLE_SIGNUP);
-    DB_UTILS.initTable(TABLE_SIGNUP_MEMBER);
-    DB_UTILS.initTable(TABLE_MEMBER);
-}
-
-
 /**
  * handleGet processes all get requests.
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-async function handleGet(req){
+const handleGet = async (req) => {
 
     if ( req.params.signupId ){
         const result = await SIGNUP.getSignup(req.params.signupId);
@@ -63,7 +51,7 @@ async function handleGet(req){
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-async function handlePost(req){
+const handlePost = async (req) => {
     try{
         const urlSignupId = req.params.signupId;
         const signup = req.body;
@@ -106,7 +94,7 @@ async function handlePost(req){
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-async function handlePut(req){
+const handlePut = async (req) => {
     SIGNUP.createSignup(req.body);
     return {
         status: 200
