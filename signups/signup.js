@@ -2,11 +2,11 @@ const DB_UTILS = require ('./dbUtils.js');
 const SIGNUP_MEMBER = require ('./signupMember.js');
 
 
-const createSignup = async (signup) => {
+const createSignup = async signup => {
     try{
         const {dbSignup, members} = undecorateSignup (signup);
-        DB_UTILS.asyncInsertEntity ( DB_UTILS.TABLE_SIGNUP, dbSignup);
-        SIGNUP_MEMBER.upsertSignupMembership (signup.signupId, members);
+        const {RowKey} = await DB_UTILS.asyncInsertEntity ( DB_UTILS.TABLE_SIGNUP, dbSignup);
+        SIGNUP_MEMBER.upsertSignupMembership (RowKey, members);
     } catch (error) {
         console.error("createSignup error:");
         console.error(error);
@@ -14,9 +14,24 @@ const createSignup = async (signup) => {
     }
 };
 
+const deleteSignup = async signupId => {
+    try{
+        const dbSignup = getSignup (signupId);
+        if (dbSignup){
+            DB_UTILS.asyncSoftDeleteEntity (DB_UTILS.TABLE_SIGNUP, dbSignup);
+            SIGNUP_MEMBER.deleteSignupMembership (signup.signupId, members);
+        }
+    } catch (error) {
+        console.error("deleteSignup error:");
+        console.error(error);
+        throw error;
+    }
+}
+
 const getAllSignups = async () => {
     try{
-        const signupsData = await DB_UTILS.asyncQueryEntities (DB_UTILS.TABLE_SIGNUP, new DB_UTILS.AZURE.TableQuery());
+        const signupQuery = new DB_UTILS.AZURE.TableQuery ().where ("deletedInd eq '" + DB_UTILS.FALSE + "'");
+        const signupsData = await DB_UTILS.asyncQueryEntities (DB_UTILS.TABLE_SIGNUP, signupQuery);
         const signups = await Promise.all (signupsData.map (decorateSignup));
         return signups;
     } catch (error) {
@@ -26,7 +41,7 @@ const getAllSignups = async () => {
     }
 };
 
-const getSignup = async (signupId) => {
+const getSignup = async signupId => {
     try{
         const signup = await DB_UTILS.asyncRetrieveEntity(DB_UTILS.TABLE_SIGNUP, signupId);
         return await decorateSignup (signup);
@@ -37,20 +52,22 @@ const getSignup = async (signupId) => {
     }
 };
 
-const decorateSignup = async (rawSignup) => {
+const decorateSignup = async rawSignup => {
     const signup = {...rawSignup};
     const signupId = rawSignup.RowKey;
     const members = await SIGNUP_MEMBER.getMembersForSignup(signupId);
     signup.updateTimestamp = signup.Timestamp;
 
+    //remove db-specific properties
     delete signup.RowKey;
     delete signup.PartitionKey;
     delete signup.Timestamp;
+    delete signup.deletedInd;
     
     return { signupId, ...signup, members};
 }; 
 
-const undecorateSignup = (signup) => {
+const undecorateSignup = signup => {
     const dbSignup = {...signup};
     const members = dbSignup.members;
     
@@ -63,7 +80,7 @@ const undecorateSignup = (signup) => {
     return {dbSignup, members};
 };
 
-const updateSignup = async (signup) => {
+const updateSignup = async signup => {
     try{
         const {dbSignup, members}  = await undecorateSignup(signup);
         
@@ -76,4 +93,4 @@ const updateSignup = async (signup) => {
     }
 };
 
-module.exports = {createSignup, getAllSignups, getSignup, updateSignup};
+module.exports = {createSignup, getAllSignups, getSignup, updateSignup, deleteSignup};

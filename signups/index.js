@@ -13,6 +13,9 @@ module.exports = async (context, req) => {
         case "POST":
             context.res = await handlePost(req);
             break;
+        case "DELETE":
+            context.res = await handleDelete(req);
+            break;
         default:
             context.log.error("unexpected request:");
             context.log.error(req);  //shouldn't happen, Azure is keeping bad verbs out because of function.json
@@ -24,12 +27,23 @@ module.exports = async (context, req) => {
     }
 };
 
+const handleDelete = async req => {
+    if (req.params.signupId) {
+        await SIGNUP.deleteSignup(req.params.signupId);
+        return { };
+    }
+    return {
+        status: "400",
+        body: "ID required on URL"
+    };
+}
+
 /**
  * handleGet processes all get requests.
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-const handleGet = async (req) => {
+const handleGet = async req => {
 
     if ( req.params.signupId ){
         const result = await SIGNUP.getSignup(req.params.signupId);
@@ -51,7 +65,7 @@ const handleGet = async (req) => {
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-const handlePost = async (req) => {
+const handlePost = async req => {
     try{
         const urlSignupId = req.params.signupId;
         const signup = req.body;
@@ -94,7 +108,7 @@ const handlePost = async (req) => {
  * @returns an Azure response object.
  * @param {*} req - the request object.
  */
-const handlePut = async (req) => {
+const handlePut = async req => {
     SIGNUP.createSignup(req.body);
     return {
         status: 200

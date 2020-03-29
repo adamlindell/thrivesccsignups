@@ -7,6 +7,8 @@ const DEFAULT_PARTITION = "default";
 const TABLE_SIGNUP = "signup";
 const TABLE_MEMBER = "member";
 const TABLE_SIGNUP_MEMBER = "signupMember";
+const FALSE = "N";
+const TRUE = "Y";
 
 const cleanUpAzureDBResponse = (azureResponse) => {
     const result = {};
@@ -81,18 +83,21 @@ const asyncInsertEntity = (tableName, entity, options = undefined) => {
     //generate an ID and establish a createTimestamp
     entity.RowKey = UUIDV4();
     entity.createTimestamp = new Date();
+    entity.deletedInd = FALSE;
 
     return new Promise ((resolve, reject) => AZURE.createTableService().insertEntity(tableName, entity, options, (error, result, response) =>  {
         if(error){
             reject({error, response});
         } else {
-            resolve(result); //successfully persisted element
+            resolve({"RowKey": entity.RowKey, result}); //successfully persisted element
         }
     }));
 };
 
-const asyncDeleteEntity = (tableName, entity, options = undefined) => {
-    return new Promise ((resolve, reject) => AZURE.createTableService().delete(tableName, entity, options, (error, result, response) => {
+const asyncSoftDeleteEntity = (tableName, entity, options = undefined) => {
+    entity.deletedInd = TRUE;
+
+    return new Promise ((resolve, reject) => AZURE.createTableService().mergeEntity(tableName, entity, options, (error, result, response) => {
         if(error){
             reject({error, response});
         } else {
@@ -108,15 +113,16 @@ initDB();
 module.exports = {
     AZURE,
     DEFAULT_PARTITION,
+    FALSE,
+    TRUE,
     TABLE_MEMBER,
     TABLE_SIGNUP,
     TABLE_SIGNUP_MEMBER,
-    initDB,
     asyncRetrieveEntity,
     asyncQueryEntities,
     asyncMergeEntity,
     asyncInsertEntity,
-    asyncDeleteEntity,
+    asyncSoftDeleteEntity,
 };
 
 
