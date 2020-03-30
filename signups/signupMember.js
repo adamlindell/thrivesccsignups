@@ -43,10 +43,10 @@ const getMembersForSignup = async signupId => {
     signupMembers.forEach(signupMember => {
         signupMembersById.set(signupMember.memberId, signupMember)
     });
-    const rawMembers = await Promise.all (signupMembers.map ( async signupMember => {
+    const dbMembers = await Promise.all (signupMembers.map ( async signupMember => {
         return DB_UTILS.asyncRetrieveEntity (DB_UTILS.TABLE_MEMBER, signupMember.memberId);
     }));
-    const members = rawMembers.map(rawMember => decorateMemberSignup (signupMembersById.get(rawMember.memberId), rawMember));
+    const members = dbMembers.map(dbMember => decorateMemberSignup (signupMembersById.get(dbMember.memberId), dbMember));
     return members;
 };
 
