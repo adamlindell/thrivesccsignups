@@ -39,10 +39,14 @@ const undecorateMemberSignup = (signupId, memberSignup) => {
 const getMembersForSignup = async signupId => {
     const signupMembersQuery = new DB_UTILS.AZURE.TableQuery ().where ("signupId eq ? and deletedInd eq '" + DB_UTILS.FALSE + "'", signupId);
     const signupMembers = await DB_UTILS.asyncQueryEntities (DB_UTILS.TABLE_SIGNUP_MEMBER, signupMembersQuery);
-    const members = await Promise.all (signupMembers.map ( async signupMember => {
-        const member = await DB_UTILS.asyncRetrieveEntity (DB_UTILS.TABLE_MEMBER, signupMember.memberId);
-        return decorateMemberSignup (signupMember, member);
+    const signupMembersById = new Map();
+    signupMembers.forEach(signupMember => {
+        signupMembersById.set(signupMember.memberId, signupMember)
+    });
+    const dbMembers = await Promise.all (signupMembers.map ( async signupMember => {
+        return DB_UTILS.asyncRetrieveEntity (DB_UTILS.TABLE_MEMBER, signupMember.memberId);
     }));
+    const members = dbMembers.map(dbMember => decorateMemberSignup (signupMembersById.get(dbMember.RowKey), dbMember));
     return members;
 };
 
